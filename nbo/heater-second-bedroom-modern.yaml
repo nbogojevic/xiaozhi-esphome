@@ -1,0 +1,25 @@
+# cspell: ignore oldname
+substitutions:
+  devicename: heater-second-bedroom
+  oldname: heater-second-bedroom.local
+  solid_state_pin: GPIO25
+  dht_pin: GPIO23
+  miso_pin: GPIO19
+  clk_pin: GPIO18
+  cs_pin: GPIO5
+  rx_pin: GPIO16
+  tx_pin: GPIO17
+  default_target_temperature: 17 °C
+  log_level: DEBUG
+  homeassistant_sensor: sensor.home_second_bedroom_temperature
+  initial_source: DHT
+  dns_domain: .home
+  overheat_stop_above: "46.0"
+  overheat_start_below: "42.0"
+
+packages:
+  wifi: !include common/wifi.yaml
+  heater_esp32_base: !include common/heater_esp32_modern.yaml
+
+debug:
+  update_interval: 60s

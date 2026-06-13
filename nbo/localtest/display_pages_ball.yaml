@@ -1,0 +1,739 @@
+# display_pages v1.08
+# cspell: ignore casita capw capx capy cosf sinf millis strftime MINWH ORGX tempbox tunit tbuf fabsf roundf wunit Lcol Lcol Rcol NUMS punit lroundf sqrtf fmodf alarmstyle weath illum
+      - id: idle_page
+        lambda: |-
+          it.fill(id(idle_color));
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_idle), ImageAlign::CENTER);
+          id(draw_active_timer_widget).execute();
+          id(draw_timer_timeline).execute();
+
+          if (id(show_battery_status).state) {
+            // ---- layout ----
+            const int top = 2;
+            const int w   = 56;     // body width (no cap) - made wider
+            const int h   = 24;     // body height - made taller for 14px font
+            const int capw = 5;     // cap width
+            const int caph = h - 8; // cap height
+            const int pad  = 3;     // inner padding
+
+            // center horizontally
+            const int cx = it.get_width() / 2;
+            const int x  = cx - (w + capw) / 2;
+            const int y  = top;
+
+            // percentage + color
+            float pct = id(battery_percentage).state;
+            if (pct < 0) pct = 0; else if (pct > 100) pct = 100;
+
+            Color lvl = Color(0x00, 0xA8, 0x00);      // green
+            if (pct <= 20)       lvl = Color(0xD0, 0x00, 0x00); // red
+            else if (pct <= 50)  lvl = Color(0xD0, 0x9A, 0x00); // yellow
+
+            // ---- body outline ----
+            it.filled_rectangle(x, y, w, h, id(idle_color));
+            it.rectangle(x, y, w, h, Color::WHITE); // white outline
+
+            // cap
+            const int capx = x + w;
+            const int capy = y + (h - caph) / 2;
+            it.filled_rectangle(capx, capy, capw, caph, Color::BLACK);
+            it.rectangle(capx, capy, capw, caph, Color::WHITE);
+
+            // inner black background
+            const int inx = x + pad;
+            const int iny = y + pad;
+            const int inw = w - 2*pad;
+            const int inh = h - 2*pad;
+            it.filled_rectangle(inx, iny, inw, inh, Color::BLACK);
+
+            // level fill
+            int fw = (int)(inw * (pct / 100.0f));
+            if (fw > 0) it.filled_rectangle(inx, iny, fw, inh, lvl);
+            it.rectangle(inx, iny, inw, inh, Color::WHITE);
+
+            // ---- percentage text INSIDE ----
+            char txt[8];
+            snprintf(txt, sizeof(txt), "%.0f%%", pct);
+
+            // center text in body
+            const int tx = x + w / 2;
+            const int ty = y + h / 2;
+            it.printf(tx+1, ty+1, id(font_battery), Color::BLACK, TextAlign::CENTER, "%s", txt);
+            it.printf(tx,   ty,   id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", txt);
+          }
+      - id: listening_page
+        lambda: |-
+          it.fill(id(listening_color));
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_listening), ImageAlign::CENTER);
+          id(draw_timer_timeline).execute();
+      - id: thinking_page
+        lambda: |-
+          it.fill(id(thinking_color));
+          const int W = it.get_width();
+          const int H = it.get_height();
+          it.image(W / 2, H / 2, id(casita_thinking), ImageAlign::CENTER);
+
+          if (id(show_text).state) {
+            const int box_h = 30;
+            const int margin_top = 20;
+            const int box_w = std::min(210, W - 10);   // keep 5px side padding minimum
+            const int x0 = (W - box_w) / 2;            // center horizontally
+            const int y0 = margin_top;
+
+            it.filled_rectangle(x0, y0, box_w, box_h, Color::WHITE);
+            it.rectangle(x0, y0, box_w, box_h, Color::BLACK);
+            // center text horizontally
+            it.printf(W / 2, y0 + 5, id(font_request_response), Color::BLACK, TextAlign::TOP_CENTER, "%s",
+                      id(text_request).state.c_str());
+          }
+          id(draw_timer_timeline).execute();
+      - id: replying_page
+        lambda: |-
+          it.fill(id(replying_color));
+          const int W = it.get_width();
+          const int H = it.get_height();
+          it.image(W / 2, H / 2, id(casita_replying), ImageAlign::CENTER);
+
+          if (id(show_text).state) {
+            const int box_h = 30;
+            const int margin_bottom = 20;              // distance from bottom edge
+            const int box_w = std::min(210, W - 10);   // keep 5px side padding minimum
+            const int x0 = (W - box_w) / 2;            // center horizontally
+            const int y0 = H - margin_bottom - box_h;  // stick to bottom with margin
+
+            it.filled_rectangle(x0, y0, box_w, box_h, Color::WHITE);
+            it.rectangle(x0, y0, box_w, box_h, Color::BLACK);
+            // center text horizontally
+            it.printf(W / 2, y0 + 5, id(font_request_response), Color::BLACK, TextAlign::TOP_CENTER, "%s",
+                      id(text_response).state.c_str());
+          }
+          id(draw_timer_timeline).execute();
+      - id: timer_finished_page
+        lambda: |-
+          it.fill(id(idle_color));
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_timer_finished), ImageAlign::CENTER);
+      - id: error_page
+        lambda: |-
+          it.fill(id(error_color));
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_error), ImageAlign::CENTER);
+      - id: no_ha_page
+        lambda: |-
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(error_no_ha), ImageAlign::CENTER);
+      - id: no_wifi_page
+        lambda: |-
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(error_no_wifi), ImageAlign::CENTER);
+      - id: initializing_page
+        lambda: |-
+          it.fill(id(loading_color));
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_initializing), ImageAlign::CENTER);
+      - id: muted_page
+        lambda: |-
+          it.fill(Color::BLACK);
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_muted), ImageAlign::CENTER);
+          id(draw_timer_timeline).execute();
+          id(draw_active_timer_widget).execute();
+      - id: now_playing_page
+        lambda: |-
+          it.fill(Color::BLACK);
+          it.image((it.get_width() / 2), (it.get_height() / 2), id(casita_playing), ImageAlign::CENTER);
+          // Optional: show timer progress while playing
+          id(draw_timer_timeline).execute();
+
+      - id: default_clock
+        lambda: |-
+          // 
+          auto draw_presence = [&](int x, int y, 
+                                 const char* label,
+                                 esphome::binary_sensor::BinarySensor *presence,
+                                 esphome::binary_sensor::BinarySensor *light_bs) {
+            bool light_on = (light_bs && light_bs->has_state() && light_bs->state);
+            bool motion = (presence && presence->has_state() && presence->state);
+            auto color = id(light_off_color);
+            if (motion) {
+              color = id(presence_color);
+            } else if (light_on) {
+              color = id(light_color);
+            }
+            it.printf(x, y, id(font_small), color, TextAlign::CENTER, "%s", label);
+
+          };
+          // ---------- Geometry (recompute only on size change) ----------
+          const int W = it.get_width();
+          const int H = it.get_height();
+          static int prevW = -1, prevH = -1;
+
+          // Treat big square panels (e.g. 480x480, 720x720) as "large"
+          const bool LARGE_SQUARE = (W >= 400 && H >= 400);
+
+          static int cx = 0, cy = 0;
+          static const int margin = 8;
+          static int r_outer = 0, r_sec = 0, r_min = 0, r_hr = 0;
+
+          static int dot_r_sec_small = 2;
+          static int dot_r_sec_big   = 3;
+          static int dot_r_min       = 5;
+          static int dot_r_hr        = 7;
+
+          static int16_t sec_x[60], sec_y[60];
+          static int16_t min_x[60], min_y[60];
+
+
+          if (W != prevW || H != prevH) {
+            prevW = W; prevH = H;
+
+            cx = W / 2; cy = H / 2;
+            r_outer = (std::min(W, H) / 2) - margin;
+            r_sec   = r_outer;
+            r_min   = r_outer - 14;
+            r_hr    = r_outer - 28;
+
+            // Scale dot sizes with screen size (once per size change)
+            int min_side = std::min(W, H);
+            dot_r_sec_small = std::max(2, std::min(3, min_side / 180));
+            dot_r_sec_big   = dot_r_sec_small + 1;
+            dot_r_min       = dot_r_sec_big + 2;
+            dot_r_hr        = dot_r_min + 2;
+
+            // On large square displays, bump dot sizes a bit (like flip clock)
+            if (LARGE_SQUARE) {
+              int base = min_side / 90;   // grows with size
+              if (base < 3) base = 3;
+              if (base > 6) base = 6;     // cap so it doesn't get silly
+              if (base > dot_r_sec_small) dot_r_sec_small = base;
+              dot_r_sec_big = dot_r_sec_small + 1;
+              dot_r_min     = dot_r_sec_big + 2;
+              dot_r_hr      = dot_r_min + 2;
+            }
+
+            // Precompute positions
+            const float PI = 3.1415926f;
+            for (int i = 0; i < 60; i++) {
+              float angle = (i / 60.0f) * 2.0f * PI - PI/2.0f;
+              sec_x[i] = cx + (int16_t)(r_sec * cosf(angle));
+              sec_y[i] = cy + (int16_t)(r_sec * sinf(angle));
+              min_x[i] = cx + (int16_t)(r_min * cosf(angle));
+              min_y[i] = cy + (int16_t)(r_min * sinf(angle));
+            }
+          }
+
+          // ---------- Colors ----------
+          static const Color clock_yellow(0xff,0xc1,0x07);
+          float rr = id(clock_color_picker).current_values.get_red();
+          float gg = id(clock_color_picker).current_values.get_green();
+          float bb = id(clock_color_picker).current_values.get_blue();
+          if (rr == 0.0f && gg == 0.0f && bb == 0.0f) { 
+            rr = gg = bb = 1.0f; 
+          } // default white
+          const Color clock_col_default((uint8_t)(rr * 255.0f), (uint8_t)(gg * 255.0f), (uint8_t)(bb * 255.0f));
+
+          auto clock_col = clock_col_default;
+          if (id(gs_touch_active)) {
+            clock_col = id(touchdown_color);
+          }
+          auto date_col = clock_col_default;
+          
+          static const Color minute_palette[10] = {
+            Color(0x3b,0x89,0xe3), Color(0x26,0xed,0x3a), Color(0xff,0xc1,0x07),
+            Color(0xff,0x5a,0x36), Color(0xff,0x3b,0x8d), Color(0x9c,0x27,0xb0),
+            Color(0x00,0xbc,0xd4), Color(0x8b,0xc3,0x4a), Color(0xfe,0x6d,0x73),
+            Color(0x60,0x7d,0x8b)
+          };
+
+          // ---------- Time ----------
+          auto now = id(homeassistant_time).now();
+          const int sec    = now.second;
+          const int minute = now.minute;
+          const int hour12 = now.hour % 12;
+
+          // Smooth hour motion anchor
+          static int last_sec = -1;
+          static uint32_t sec_anchor_ms = 0;
+          if (sec != last_sec) { 
+            last_sec = sec; sec_anchor_ms = millis(); 
+          }
+          float sec_frac = (millis() - sec_anchor_ms) / 1000.0f;
+          if (sec_frac < 0.0f) sec_frac = 0.0f;
+          if (sec_frac > 0.999f) sec_frac = 0.999f;
+
+          // ---------- Background ----------
+          const bool show_wallpaper = id(clock_show_wallpaper).state;
+          if (show_wallpaper) {
+            // Draw wallpaper each tick so nothing sticks.
+            it.image(cx, cy, id(clock_background), ImageAlign::CENTER);
+          } else {
+            // No wallpaper: clear to black once per tick (cheap and avoids ghosts).
+            it.fill(Color::BLACK);
+          }
+
+          std::string tunit = id(ha_weather_temperature_unit).state.c_str();
+          if (tunit.empty()) {
+            tunit = "°C";
+          }
+          char tbuf[20] = "N/A";
+          if (id(ha_weather_temperature).has_state()) {
+            float tv = id(ha_weather_temperature).state;
+            auto temp_color = tv > 28.0f ? id(temperature_hot_color) : tv < 10.0f ? id(temperature_cold_color) : tv < 19.0f ? id(temperature_cool_color) : tv < 24.0f ? id(temperature_pleasant_color) : id(temperature_warm_color);
+            if (fabsf(tv - roundf(tv)) < 0.05f) {
+              snprintf(tbuf, sizeof(tbuf), "%.0f%s", tv, tunit.c_str());
+            }
+            else {                                 
+              snprintf(tbuf, sizeof(tbuf), "%.1f%s", tv, tunit.c_str());
+            }
+            it.printf(cx-40, cy-50, id(font_battery), temp_color, TextAlign::CENTER, "%s", tbuf);
+          }
+                    
+          // Room temperature
+          if (id(ha_room_temperature).has_state()) {
+            float tv = id(ha_room_temperature).state;
+            auto temp_color = tv > 28.0f ? id(temperature_hot_color) : tv < 10.0f ? id(temperature_cold_color) : tv < 19.0f ? id(temperature_cool_color) : tv < 24.0f ? id(temperature_pleasant_color) : id(temperature_warm_color);
+            if (fabsf(tv - roundf(tv)) < 0.05f) {
+              snprintf(tbuf, sizeof(tbuf), "%.0f%s", tv, tunit.c_str());
+            }
+            else {                                 
+              snprintf(tbuf, sizeof(tbuf), "%.1f%s", tv, tunit.c_str());
+            }
+            it.printf(cx+40, cy-50, id(font_battery), temp_color, TextAlign::CENTER, "%s", tbuf);
+          } else {
+            ESP_LOGI("TEMP", "No room temperature data");
+          }   
+          // CO2
+          if (id(ha_room_co2).has_state()) {
+            float tv = id(ha_room_co2).state;
+            if (fabsf(tv - roundf(tv)) < 0.05f) {
+              snprintf(tbuf, sizeof(tbuf), "%.0f ppm", tv, tunit.c_str());
+            }
+            else {                                 
+              snprintf(tbuf, sizeof(tbuf), "%.1f ppm", tv, tunit.c_str());
+            }
+            auto color_co2 = tv > 1200 ? id(co2_alert_color) : tv > 800 ? id(co2_warn_color) : id(co2_good_color);
+            it.printf(cx+40, cy-70, id(font_small), color_co2, TextAlign::CENTER, "%s", tbuf);
+          }    
+
+          if (minute % 2 == 0) {
+            draw_presence(cx-40, cy+35, id(sensor1_label).c_str(), id(ha_sensor1), id(ha_light1));
+            draw_presence(cx+40, cy+35, id(sensor2_label).c_str(), id(ha_sensor2), id(ha_light2));
+            draw_presence(cx-40, cy+50, id(sensor3_label).c_str(), id(ha_sensor3), id(ha_light3));
+            draw_presence(cx+40, cy+50, id(sensor4_label).c_str(), id(ha_sensor4), id(ha_light4));
+            draw_presence(cx-40, cy+65, id(sensor5_label).c_str(), id(ha_sensor5), id(ha_light5));
+            draw_presence(cx+40, cy+65, id(sensor6_label).c_str(), id(ha_sensor6), id(ha_light6));
+            draw_presence(cx-40, cy+80, id(sensor7_label).c_str(), id(ha_sensor7), id(ha_light7));
+          } else { 
+            char cloud_buf[12] = "N/A";
+            if (id(ha_weather_cloud_coverage).has_state()) {
+              snprintf(cloud_buf, sizeof(cloud_buf), "%.0f%%", id(ha_weather_cloud_coverage).state);
+            }
+            it.printf(cx-40, cy+40, id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", cloud_buf);
+
+            char uv_buf[12] = "N/A";
+            if (id(ha_weather_uv_index).has_state()) {
+              snprintf(uv_buf, sizeof(uv_buf), "UV %.1f", id(ha_weather_uv_index).state);
+            }
+            it.printf(cx+40, cy+40, id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", uv_buf);
+
+            std::string wunit = id(ha_weather_wind_speed_unit).state.c_str();
+
+            char wind_buf[20] = "N/A";
+            if (id(ha_weather_wind_speed).has_state()) {
+              if (wunit.empty()) {
+                snprintf(wind_buf, sizeof(wind_buf), "%.1f", id(ha_weather_wind_speed).state);
+              } else {
+                snprintf(wind_buf, sizeof(wind_buf), "%.1f %s", id(ha_weather_wind_speed).state, wunit.c_str());
+              }
+            }
+            it.printf(cx-40, cy+55, id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", wind_buf);
+
+            char gust_buf[20] = "N/A";
+            if (id(ha_weather_wind_gust).has_state()) {
+              if (wunit.empty()) {
+                snprintf(gust_buf, sizeof(gust_buf), "%.1f", id(ha_weather_wind_gust).state);
+              } else {
+                snprintf(gust_buf, sizeof(gust_buf), "%.1f %s", id(ha_weather_wind_gust).state, wunit.c_str());
+              }
+            }
+            it.printf(cx+40, cy+55, id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", gust_buf);
+            char hum_buf[12] = "N/A";
+            if (id(ha_weather_humidity).has_state()) {
+              snprintf(hum_buf, sizeof(hum_buf), "%.0f%%", id(ha_weather_humidity).state);
+            }
+            it.printf(cx-40, cy+70, id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", hum_buf);
+            std::string punit = id(ha_weather_pressure_unit).state.c_str();
+            if (punit.empty()) {
+              punit = "hPa";
+            }
+            char pres_buf[22] = "N/A";
+            if (id(ha_weather_pressure).has_state()) {
+              snprintf(pres_buf, sizeof(pres_buf), "%.0f %s", id(ha_weather_pressure).state, punit.c_str());
+            }
+            it.printf(cx+40, cy+70, id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", pres_buf);
+          }
+
+          // ---------- Thin black band under seconds (only needed over wallpaper) ----------
+          if (show_wallpaper && id(clock_show_dots).state) {
+            int half_thick = dot_r_sec_big + 2;  // enough to cover markers
+            for (int dr = -half_thick; dr <= half_thick; dr++) {
+              it.circle(cx, cy, r_sec + dr, Color::BLACK);
+            }
+          }
+
+          // ---------- Seconds ring ----------
+          if (id(clock_show_dots).state) {
+            // 5-second markers (white)
+            for (int i = 0; i < 60; i += 5) {
+              it.filled_circle(sec_x[i], sec_y[i], dot_r_sec_big, Color::WHITE);
+            }
+            // Progress dots (skip 5s positions)
+            const Color sec_col = minute_palette[minute % 10];
+            for (int i = 0; i <= sec && i < 60; i++) {
+              if (i % 5 == 0) continue;
+              it.filled_circle(sec_x[i], sec_y[i], dot_r_sec_small, sec_col);
+            }
+          }
+
+          // ---------- Minute dot (yellow) ----------
+          // NBO no minute dot //it.filled_circle(min_x[minute], min_y[minute], dot_r_min, clock_yellow);
+
+          // ---------- NBO No Hour dot (yellow, smooth with minute+second) ----------
+          // {
+          //   const float PI = 3.1415926f;
+          //   float h_pos = (hour12 + (minute + sec_frac) / 60.0f) / 12.0f;
+          //   float h_angle = h_pos * 2.0f * PI - PI/2.0f;
+          //   int hx = cx + (int)(r_hr * cosf(h_angle));
+          //   int hy = cy + (int)(r_hr * sinf(h_angle));
+          //   it.filled_circle(hx, hy, dot_r_hr, clock_yellow);
+          // }
+
+          auto date_font = id(font_big_date);
+
+          // ---------- Time text ----------
+          if (id(clock_show_time).state) {
+            int clock_y;
+            if (id(clock_show_date).state) {
+              // Lift a bit more on large panels to give space for bigger date
+              clock_y = cy - 24;
+            } else {
+              clock_y = cy;
+            }
+
+            if (id(clock_24h).state) {
+              if (id(clock_show_seconds).state)
+                it.strftime(cx, clock_y, id(font_big_clock_mono), clock_col, TextAlign::CENTER, "%H:%M:%S", now);
+              else
+                it.strftime(cx, clock_y, id(font_big_clock_mono), clock_col, TextAlign::CENTER, "%H:%M", now);
+            } else {
+              if (id(clock_show_seconds).state)
+                it.strftime(cx, clock_y, id(font_big_clock_mono), clock_col, TextAlign::CENTER, "%I:%M:%S%p", now);
+              else
+                it.strftime(cx, clock_y, id(font_big_clock_mono), clock_col, TextAlign::CENTER, "%I:%M%p", now);
+            }
+          }
+
+          // ---------- Date ----------
+          if (id(clock_show_date).state) {
+            if (id(clock_show_time).state) {
+              // Normal layout: time shown, date below it
+              int date_y = cy + (LARGE_SQUARE ? 22 : 14);
+              if (id(clock_24h).state)
+                it.strftime(cx, date_y, date_font, date_col, TextAlign::CENTER, "%a, %d %b", now);
+              else
+                it.strftime(cx, date_y, date_font, date_col, TextAlign::CENTER, "%a, %b %d", now);
+            } else {
+              // Time hidden: center the date where time would normally sit
+              int date_y = cy;
+              if (id(clock_24h).state)
+                it.strftime(cx, date_y, date_font, date_col, TextAlign::CENTER, "%a, %d %b", now);
+              else
+                it.strftime(cx, date_y, date_font, date_col, TextAlign::CENTER, "%a, %b %d", now);
+            }
+          }
+
+          // ---------- Battery status ----------
+          if (id(show_battery_status).state) {
+            // ---- layout ----
+            const int top = 2;
+            const int w   = 56;     // body width (no cap) - made wider
+            const int h   = 24;     // body height - made taller for 14px font
+            const int capw = 5;     // cap width
+            const int caph = h - 8; // cap height
+            const int pad  = 3;     // inner padding
+
+            // center horizontally
+            const int cx_batt = it.get_width() / 2;
+            const int x  = cx_batt - (w + capw) / 2;
+            const int y  = top;
+
+            // percentage + color
+            float pct = id(battery_percentage).state;
+            if (pct < 0) pct = 0; else if (pct > 100) pct = 100;
+
+            Color lvl = Color(0x00, 0xA8, 0x00);      // green
+            if (pct <= 20)       lvl = Color(0xD0, 0x00, 0x00); // red
+            else if (pct <= 50)  lvl = Color(0xD0, 0x9A, 0x00); // yellow
+
+            // ---- body outline ----
+            it.filled_rectangle(x, y, w, h, id(idle_color));
+            it.rectangle(x, y, w, h, Color::WHITE); // white outline
+
+            // cap
+            const int capx = x + w;
+            const int capy = y + (h - caph) / 2;
+            it.filled_rectangle(capx, capy, capw, caph, Color::BLACK);
+            it.rectangle(capx, capy, capw, caph, Color::WHITE);
+
+            // inner black background
+            const int inx = x + pad;
+            const int iny = y + pad;
+            const int inw = w - 2*pad;
+            const int inh = h - 2*pad;
+            it.filled_rectangle(inx, iny, inw, inh, Color::BLACK);
+
+            // level fill
+            int fw = (int)(inw * (pct / 100.0f));
+            if (fw > 0) it.filled_rectangle(inx, iny, fw, inh, lvl);
+            it.rectangle(inx, iny, inw, inh, Color::WHITE);
+
+            // ---- percentage text INSIDE ----
+            char txt[8];
+            snprintf(txt, sizeof(txt), "%.0f%%", pct);
+
+            // center text in body
+            const int tx = x + w / 2;
+            const int ty = y + h / 2;
+            it.printf(tx+1, ty+1, id(font_battery), Color::BLACK, TextAlign::CENTER, "%s", txt);
+            it.printf(tx,   ty,   id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", txt);
+          }
+
+      - id: empty_clock
+        lambda: |-
+          it.fill(Color::BLACK);
+          const int W = it.get_width();
+          const int H = it.get_height();
+          // MUST be temp_fullscreen here:
+          it.image(W / 2, H / 2, id(temp_fullscreen), ImageAlign::CENTER);
+
+      - id: analog_clock
+        lambda: |-
+          // ----- basics & background -----
+          const int W  = it.get_width();
+          const int H  = it.get_height();
+          const int CX = W / 2;
+          const int CY = H / 2;
+
+          if (id(clock_show_wallpaper).state) {
+            it.image(CX, CY, id(clock_background), ImageAlign::CENTER);
+          } else {
+            it.fill(Color::BLACK);
+          }
+
+          // ----- color & fonts -----
+          float rr = id(clock_color_picker).current_values.get_red();
+          float gg = id(clock_color_picker).current_values.get_green();
+          float bb = id(clock_color_picker).current_values.get_blue();
+          if (rr == 0.0f && gg == 0.0f && bb == 0.0f) { rr = gg = bb = 1.0f; }
+          const Color FG((uint8_t)(rr * 255.0f), (uint8_t)(gg * 255.0f), (uint8_t)(bb * 255.0f));
+          const Color FACE_ACC(60,60,60);
+          const Color RING(180,180,180);
+          const Color SEC_COL = id(seconds_dot_color);
+
+          const int MINWH = std::min(W, H);
+          const bool TINY  = (MINWH <= 160);
+          const bool LARGE = (MINWH >= 400);
+
+          // Bigger date font on large displays
+          auto &date_font = LARGE ? id(font_big_clock_mono) : id(font_big_date);
+
+          // ----- geometry -----
+          const int M       = std::max(8, MINWH / 18);
+          const int R       = MINWH / 2 - M;
+          const int R_TICKS = R - std::max(4, R / 18);
+
+          // Number font: bigger on large displays
+          auto &num_font = TINY
+                           ? id(font_battery)
+                           : (LARGE ? id(font_big_clock_mono) : id(font_big_date));
+
+          const bool DRAW_NUMS = id(clock_show_time).state && !TINY;
+
+          const int R_NUMBERS  = R - std::max(16, R / 6);
+          const int NUM_PAD    = TINY ? std::max(2, R / 28) : std::max(4, R / 22);
+
+          // Ring thickness: thicker on large displays
+          const int RING_THICK = LARGE ? std::max(2, R / 60) : 1;
+
+          // ----- LUT -----
+          static bool LUT_INIT = false;
+          static int16_t ux[60], uy[60];
+          if (!LUT_INIT) {
+            const float TWO_PI = 6.2831853f;
+            for (int i = 0; i < 60; i++) {
+              float a = (i / 60.0f) * TWO_PI - (3.1415926f / 2.0f);
+              ux[i] = (int16_t) lroundf(cosf(a) * 10000.0f);
+              uy[i] = (int16_t) lroundf(sinf(a) * 10000.0f);
+            }
+            LUT_INIT = true;
+          }
+          auto rx = [&](int r, int i){ return CX + (int)(( (long)r * ux[i]) / 10000L); };
+          auto ry = [&](int r, int i){ return CY + (int)(( (long)r * uy[i]) / 10000L); };
+
+          // ----- time (smooth sweep) -----
+          auto now = id(homeassistant_time).now();
+          int s = now.second;
+          int m = now.minute;
+          int h = now.hour % 12;
+
+          static int last_sec = -1;
+          static uint32_t sec_anchor_ms = 0;
+          if (s != last_sec) { last_sec = s; sec_anchor_ms = millis(); }
+          float sec_frac = (millis() - sec_anchor_ms) / 1000.0f;
+          if (sec_frac < 0.0f) sec_frac = 0.0f;
+          if (sec_frac > 0.999f) sec_frac = 0.999f;
+
+          float s_pos = (s + sec_frac) / 60.0f;
+          float m_pos = (m + (id(clock_show_seconds).state ? s_pos : 0.0f)) / 60.0f;
+          float h_pos = (h + m_pos) / 12.0f;
+
+          auto polar = [&](float pos, int r, int &ox, int &oy) {
+            const float TWO_PI = 6.2831853f;
+            float a = pos * TWO_PI - (3.1415926f / 2.0f);
+            ox = CX + (int) lroundf(r * cosf(a));
+            oy = CY + (int) lroundf(r * sinf(a));
+          };
+
+          // ----- hand sizes -----
+          const int L_H = (int)(R * 0.52f);
+          const int L_M = (int)(R * 0.72f);
+          const int L_S = (int)(R * 0.82f);
+          const int W_H = std::max(TINY ? 2 : 3, R / 16);
+          const int W_M = std::max(TINY ? 1 : 2, R / 22);
+          const int W_S = std::max(1, R / 50);
+
+          auto thick_hand = [&](int x0, int y0, int x1, int y1, int w, Color col) {
+            if (w <= 1) { it.line(x0, y0, x1, y1, col); return; }
+            float dx = (float)(x1 - x0), dy = (float)(y1 - y0);
+            float L = sqrtf(dx*dx + dy*dy);
+            if (L < 1.0f) { it.line(x0, y0, x1, y1, col); return; }
+            float px = -dy / L, py = dx / L;
+            int half = w / 2;
+            for (int t = -half; t <= half; ++t) {
+              int ox = (int) lroundf(px * t);
+              int oy = (int) lroundf(py * t);
+              it.line(x0 + ox, y0 + oy, x1 + ox, y1 + oy, col);
+            }
+          };
+
+          // ----- dial (if dots shown) -----
+          if (id(clock_show_dots).state) {
+            // Thicker outer / inner rings on large displays
+            for (int dr = 0; dr < RING_THICK; ++dr) {
+              it.circle(CX, CY, R + dr,   RING);
+              it.circle(CX, CY, (R - 2) - dr, FACE_ACC);
+            }
+
+            for (int i = 0; i < 60; i++) {
+              bool major    = (i % 5  == 0);
+              bool quadrant = (i % 15 == 0);
+              int  len_base = quadrant ? std::max(10, R / 6)
+                                       : (major ? std::max(8, R / 10)
+                                                : std::max(4, R / 18));
+              Color col = major ? FG : FACE_ACC;
+
+              int r_outer = R_TICKS;
+              int r_inner = R_TICKS - len_base;
+              if (quadrant && DRAW_NUMS) {
+                r_inner = std::max(r_inner, R_NUMBERS + NUM_PAD);
+              }
+
+              int x1 = rx(r_outer, i), y1 = ry(r_outer, i);
+              int x2 = rx(r_inner, i), y2 = ry(r_inner, i);
+
+              if (quadrant) {
+                // Quadrant ticks thicker, especially on large
+                it.line(x1, y1, x2, y2, col);
+                it.line(x1+1, y1, x2+1, y2, col);
+                if (LARGE) {
+                  it.line(x1-1, y1, x2-1, y2, col);
+                }
+              } else if (major && LARGE) {
+                // Major ticks a bit thicker on large
+                it.line(x1,   y1,   x2,   y2,   col);
+                it.line(x1+1, y1,   x2+1, y2,   col);
+              } else {
+                it.line(x1, y1, x2, y2, col);
+              }
+            }
+
+            if (DRAW_NUMS) {
+              auto print_center = [&](int i, const char* txt) {
+                int tx = rx(R_NUMBERS, i);
+                int ty = ry(R_NUMBERS, i);
+                it.printf(tx, ty, num_font, FG, TextAlign::CENTER, "%s", txt);
+              };
+              print_center(0,  "12");
+              print_center(15, "3");
+              print_center(30, "6");
+              print_center(45, "9");
+            }
+          }
+
+          // ----- hands -----
+          { int hx, hy; polar(h_pos, L_H, hx, hy); thick_hand(CX, CY, hx, hy, W_H, FG); }
+          { int mx, my; polar(m_pos, L_M, mx, my); thick_hand(CX, CY, mx, my, W_M, FG); }
+          if (id(clock_show_seconds).state) {
+            int sx, sy; polar(s_pos, L_S, sx, sy);
+            it.line(CX, CY, sx, sy, SEC_COL);
+            int bwx, bwy; polar(fmodf(s_pos + 0.5f, 1.0f), (int)(R * 0.18f), bwx, bwy);
+            it.line(CX, CY, bwx, bwy, SEC_COL);
+          }
+          it.filled_circle(CX, CY, std::max(3, R / 20), FG);
+
+          // ----- date -----
+          if (id(clock_show_date).state) {
+            const int date_y = CY + (int)(R * 0.55f);
+            if (id(clock_24h).state)
+              it.strftime(CX, date_y, date_font, FG, TextAlign::TOP_CENTER, "%a, %d %b", now);
+            else
+              it.strftime(CX, date_y, date_font, FG, TextAlign::TOP_CENTER, "%a, %b %d", now);
+          }
+
+          // Battery chip
+          if (id(show_battery_status).state) {
+            const int top = 2;
+            const int w   = 56;
+            const int h   = 24;
+            const int capw = 5;
+            const int caph = h - 8;
+            const int pad  = 3;
+
+            const int cx = it.get_width() / 2;
+            const int x  = cx - (w + capw) / 2;
+            const int y  = top;
+
+            float pct = id(battery_percentage).state;
+            if (pct < 0) pct = 0; else if (pct > 100) pct = 100;
+
+            Color lvl = Color(0x00, 0xA8, 0x00);
+            if (pct <= 20)       lvl = Color(0xD0, 0x00, 0x00);
+            else if (pct <= 50)  lvl = Color(0xD0, 0x9A, 0x00);
+
+            it.filled_rectangle(x, y, w, h, Color::BLACK);
+            it.rectangle(x, y, w, h, Color::WHITE);
+
+            const int capx = x + w;
+            const int capy = y + (h - caph) / 2;
+            it.filled_rectangle(capx, capy, capw, caph, Color::BLACK);
+            it.rectangle(capx, capy, capw, caph, Color::WHITE);
+
+            const int inx = x + pad;
+            const int iny = y + pad;
+            const int inw = w - 2*pad;
+            const int inh = h - 2*pad;
+            it.filled_rectangle(inx, iny, inw, inh, Color::BLACK);
+
+            int fw = (int)(inw * (pct / 100.0f));
+            if (fw > 0) it.filled_rectangle(inx, iny, fw, inh, lvl);
+            it.rectangle(x, y, w, h, Color::WHITE);
+
+            char txt[8];
+            snprintf(txt, sizeof(txt), "%.0f%%", pct);
+            it.printf(x + w/2 + 1, y + h/2 + 1, id(font_battery), Color::BLACK, TextAlign::CENTER, "%s", txt);
+            it.printf(x + w/2,     y + h/2,     id(font_battery), Color::WHITE, TextAlign::CENTER, "%s", txt);
+          }

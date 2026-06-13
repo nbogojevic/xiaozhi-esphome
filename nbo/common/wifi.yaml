@@ -1,0 +1,47 @@
+wifi:
+  id: wifi_obj
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  domain: ${dns_domain}
+  use_address: "${oldname}"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESPHOME_${devicename}"
+    password: !secret portal_password
+
+captive_portal:
+
+sensor:
+  - platform: uptime
+    name: ${devicename} Uptime
+    disabled_by_default: true
+  - platform: wifi_signal
+    name: "${devicename} WiFi Signal"
+    update_interval: 60s
+    icon: "mdi:wifi"
+    disabled_by_default: true
+
+text_sensor:
+  # Information sensors
+  - platform: version
+    name: "${devicename} Version"
+    disabled_by_default: true
+  - platform: wifi_info
+    ip_address:
+      name: "${devicename} IP Address"
+      disabled_by_default: true
+      icon: "mdi:ip-network-outline"
+    ssid:
+      name: "${devicename} Connected SSID"
+      disabled_by_default: true
+      icon: "mdi:wifi-check"
+    bssid:
+      name: "${devicename} Connected BSSID"
+      disabled_by_default: true
+      icon: "mdi:wifi-marker"
+    mac_address:
+      name: "${devicename} MAC Address"
+      disabled_by_default: true
+      icon: "mdi:network"

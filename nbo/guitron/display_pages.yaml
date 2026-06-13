@@ -275,16 +275,13 @@
 
           // Choose date font (bigger on large displays)
           auto date_font = id(font_big_date);
-          if (LARGE_SQUARE) {
-            date_font = id(font_big_clock_mono);
-          }
 
           // ---------- Time text ----------
           if (id(clock_show_time).state) {
             int clock_y;
             if (id(clock_show_date).state) {
               // Lift a bit more on large panels to give space for bigger date
-              clock_y = cy - (LARGE_SQUARE ? 30 : 24);
+              clock_y = cy - (24);
             } else {
               clock_y = cy;
             }

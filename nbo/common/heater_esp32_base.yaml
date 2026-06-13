@@ -1,0 +1,457 @@
+esphome:
+  name: "${devicename}"
+  comment: "${devicename} heater"
+  project:
+    name: "nbogojevic.esp32heater"
+    version: "1.1"
+  includes:
+    - common/heater_esp32.h
+  on_boot:
+    priority: 600
+    then:
+      - script.execute: screen_saver_script
+      - script.execute: heat_on_power
+
+esp32:
+  board: "${board_type}"
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+  level: "${log_level}"
+  logs:
+    sensor: INFO
+    ntc: INFO
+    resistance: INFO
+
+# Enable Home Assistant API
+api:
+
+safe_mode:
+  num_attempts: 100
+  reboot_timeout: 15min
+  disabled: true
+
+# Enable OTA
+ota:
+  - platform: esphome
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    on_time_sync:
+      then:
+        - logger.log: "Synchronized system clock"
+
+switch:
+  # Solid-state switch pin
+  - platform: gpio
+    pin:
+      # If solid-state switch is driven by high voltage
+      number: ${solid_state_pin}
+    id: heater_switch
+    restore_mode: ALWAYS_OFF
+    name: "${devicename} Heater"
+  - platform: restart
+    name: "${devicename} Restart"
+    id: reboot
+    disabled_by_default: true
+
+i2c:
+  sda: ${sda_pin}
+  scl: ${scl_pin}
+  frequency: 400kHz
+
+font:
+  - file: "common/FiraCode-Regular.ttf"
+    id: font_temp
+    size: 25
+    glyphs:
+      [
+        ".",
+        "°",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        " ",
+        "C",
+        "-",
+      ]
+  - file: "common/FiraCode-Regular.ttf"
+    id: font_set
+    size: 18
+    glyphs:
+      [
+        ".",
+        "°",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        " ",
+        "C",
+        "-",
+        "O",
+        "F",
+      ]
+  - file: "common/materialdesignicons-webfont.ttf"
+    id: font_icon
+    size: 16
+    glyphs: [
+        "󰸂", # Intake temperatue mdi-thermometer-chevron-down
+        "󰸃", # Up (DHT) mdi-thermometer-chevron-up
+        "󰽕", # Home assistant mdi-home-thermometer-outline
+        "󰐸", # Heat mdi-radiator
+        "󰫗", # Idle mdi-radiator-disabled
+        "󰍷", # Off mdi-minus-circle-outline
+        "󰄬", # OK mdi-check
+        "󰛑", # Source error mdi-eye-off-outline
+        "󰈸", # Overheating error mdi-fire
+        "󱀧", # Intake fallback mdi-eye-minus-outline
+        "󰡬", # DHT fallback mdi-eye-plus-outline
+        "󰖩", # WiFi Connected mdi-wifi
+        "󰖪", # WiFi Not Connected mdi-wifi-off
+        "󱜢", # Safety stop mdi-fire-alert
+        "󱃙", # Switch mdi-electric-switch-closed
+      ]
+
+  - file: "common/FiraCode-Regular.ttf"
+    id: font_status
+    size: 12
+    glyphs:
+      [
+        ".",
+        "°",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+        " ",
+      ]
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    id: screen
+    update_interval: 5s
+    contrast: 10%
+    address: 0x3C
+    lambda: return paint_display(it);
+
+esp32_touch:
+  setup_mode: false
+
+binary_sensor:
+  # Up
+  - platform: esp32_touch
+    name: "${devicename} Touch Pad"
+    pin: ${touch_pin}
+    threshold: 1000
+    on_press:
+      then:
+        - if:
+            condition:
+              - script.is_running: screen_saver_script
+            then:
+              - script.stop: screen_saver_script
+              - script.execute: screen_saver_script
+              - climate.control:
+                  id: heater
+                  mode: !lambda |-
+                    if (id(heater).mode == climate::CLIMATE_MODE_HEAT) {
+                      if (id(heater).target_temperature >= id(heater).get_traits().get_visual_max_temperature()) {
+                        return climate::CLIMATE_MODE_OFF;
+                      }
+                    }
+                    return climate::CLIMATE_MODE_HEAT;
+                  target_temperature: !lambda |-
+                    if (id(heater).mode == climate::CLIMATE_MODE_HEAT) {
+                      if (id(heater).target_temperature < id(heater).get_traits().get_visual_max_temperature()) {
+                        return id(heater).target_temperature + 1;
+                      } 
+                    }
+                    return id(heater).get_traits().get_visual_min_temperature();
+              - component.update: screen
+            else:
+              - script.execute: screen_saver_script
+              - component.update: screen
+  - platform: template
+    name: "${devicename} Safety Stop"
+    id: safety_stop
+    device_class: problem
+
+sensor:
+  # Measure thermistor resistance:
+  - platform: adc
+    id: source_sensor
+    pin: ${thermistor_pin}
+    name: "${devicename} Thermistor Current"
+    update_interval: 2s
+    filters:
+      - exponential_moving_average:
+          alpha: 0.1
+          send_every: 5
+    disabled_by_default: true
+  - platform: resistance
+    id: resistance_sensor
+    sensor: source_sensor
+    configuration: DOWNSTREAM
+    resistor: 330kOhm
+    name: "${devicename} Thermistor Resistance"
+    disabled_by_default: true
+  - platform: ntc
+    sensor: resistance_sensor
+    calibration:
+      # - 112kOhm -> 20°C
+      - 100kOhm -> 25°C
+      - 162kOhm -> 15°C
+      - 64kOhm -> 35°C
+    name: "${devicename} Intake Temperature"
+    id: adc_temperature
+    icon: "mdi:thermometer-chevron-down"
+    accuracy_decimals: 0
+    filters:
+      - lambda: |-
+          if (ADC_MIN_VALUE >= x) return ADC_MIN_VALUE;
+          if (x >= ADC_MAX_VALUE) return ADC_MAX_VALUE;
+          return x;
+
+  # Digital temperature sensor
+  - platform: dht
+    pin: ${dht_pin}
+    temperature:
+      name: "${devicename} DHT Temperature"
+      id: dht_temperature
+      icon: "mdi:thermometer-chevron-up"
+      accuracy_decimals: 0
+      on_value:
+        - if:
+            condition:
+              and:
+                - lambda: return x >= ${overheat_stop_above};
+                - switch.is_on: heater_switch
+            then:
+              - logger.log: "!! DHT too hot !!"
+              - switch.turn_off: heater_switch
+              - binary_sensor.template.publish:
+                  id: safety_stop
+                  state: ON
+            else:
+              - if:
+                  condition:
+                    and:
+                      - lambda: |-
+                          return x <= ${overheat_start_below}
+                            && id(heater).mode == climate::CLIMATE_MODE_HEAT
+                            && id(heater).action == climate::CLIMATE_ACTION_HEATING;
+                      - switch.is_off: heater_switch
+                  then:
+                    - logger.log: "DHT cooled down"
+                    - switch.turn_on: heater_switch
+                    - binary_sensor.template.publish:
+                        id: safety_stop
+                        state: OFF
+
+    humidity:
+      name: "${devicename} DHT Humidity"
+      id: dht_humidity
+    update_interval: 30s
+  - platform: template
+    name: "${devicename} Ambient Temperature"
+    id: ambient_temperature
+    icon: "mdi:thermometer"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    lambda: |-
+      // Check if it is not overheating
+      auto source = id(temperature_source).state;
+      if (source == HOME_ASSISTANT_SOURCE) {
+        if (id(homeassistant_temperature).has_state() && id(homeassistant_temperature).state != NAN && id(homeassistant_temperature).state < 50) {
+          id(source_state).publish_state(STATUS_OK);
+          return floor(id(homeassistant_temperature).state);
+        }
+      }
+      if (source == INTAKE_SOURCE && id(adc_temperature).has_state()) {
+        id(source_state).publish_state(STATUS_OK);
+        return floor(id(adc_temperature).state);
+      }
+      if (source == DHT_SOURCE && id(dht_temperature).has_state()) {
+        id(source_state).publish_state(STATUS_OK);
+        return floor(id(dht_temperature).state);
+      }
+      // Fallback
+      if (id(adc_temperature).has_state()) {
+        if (id(dht_temperature).has_state()) {
+          auto adc = floor(id(adc_temperature).state);
+          auto dht = floor(id(dht_temperature).state);
+          id(source_state).publish_state(STATUS_MIX_FALLBACK);
+          return floor((adc+dht)/2.0);
+        }
+        id(source_state).publish_state(STATUS_INTAKE_FALLBACK);
+        return floor(id(adc_temperature).state);
+      }
+      else if (id(dht_temperature).has_state()) {
+        id(source_state).publish_state(STATUS_DHT_FALLBACK);
+        return floor(id(dht_temperature).state);
+      }
+      id(source_state).publish_state(STATUS_SOURCE_ERROR);
+      return {};
+  - platform: homeassistant
+    name: "Temperature Sensor From Home Assistant"
+    entity_id: ${homeassistant_sensor}
+    id: homeassistant_temperature
+  - platform: internal_temperature
+    name: "${devicename} Internal Temperature"
+    id: internal_chip_temperature
+    # on_value:
+    #   - if:
+    #       condition:
+    #         and:
+    #           - lambda: return x >= MAX_INTERNAL_TEMPERATURE;
+    #           - switch.is_on: heater_switch
+    #       then:
+    #         - logger.log: "!! ESP32 too hot !!"
+    #         - switch.turn_off: heater_switch
+    #         - binary_sensor.template.publish:
+    #             id: safety_stop
+    #             state: ON
+    #       else:
+    #         - if:
+    #             condition:
+    #               and:
+    #                 - lambda: |-
+    #                     return x <= INTERNAL_TEMPERATURE_RESUME
+    #                       && id(heater).mode == climate::CLIMATE_MODE_HEAT
+    #                       && id(heater).action == climate::CLIMATE_ACTION_HEATING;
+    #                 - switch.is_off: heater_switch
+    #             then:
+    #               - logger.log: "DHT cooled down"
+    #               - switch.turn_on: heater_switch
+    #               - binary_sensor.template.publish:
+    #                   id: safety_stop
+    #                   state: OFF
+
+select:
+  - platform: template
+    name: "${devicename} Temperature Source"
+    id: temperature_source
+    optimistic: true
+    icon: "mdi:eye"
+    options:
+      - Intake
+      - DHT
+      - Home Assistant
+    initial_option: ${initial_source}
+    restore_value: true
+
+# Information sensors
+text_sensor:
+  - platform: template
+    name: "${devicename} Source State"
+    id: source_state
+    icon: "mdi:information-outline"
+
+climate:
+  - platform: thermostat
+    name: "${devicename} Heating"
+    id: heater
+    sensor: ambient_temperature
+    default_preset: Home
+    on_boot_restore_from: memory
+    min_heating_off_time: 30s
+    min_heating_run_time: 10s
+    set_point_minimum_differential: 1 °C
+    min_idle_time: 10s
+    heat_action:
+      - switch.turn_on: heater_switch
+      - binary_sensor.template.publish:
+          id: safety_stop
+          state: OFF
+    idle_action:
+      - switch.turn_off: heater_switch
+      - binary_sensor.template.publish:
+          id: safety_stop
+          state: OFF
+    preset:
+      - name: Home
+        mode: heat
+        default_target_temperature_low: ${default_target_temperature}
+
+script:
+  - id: screen_saver_script
+    then:
+      - delay: 5min
+  - id: heat_on_power
+    then:
+      - delay: 1min
+      - logger.log: "Initial setup"
+      - if:
+          condition:
+            time.has_time:
+          then:
+            - if:
+                condition:
+                  - lambda: |-
+                      auto month = id(homeassistant_time).now().month;
+                      return month >= 10 || month <= 4;
+                then:
+                  - logger.log: "HEAT on boot in cold season"
+                  - climate.control:
+                      id: heater
+                      mode: "HEAT"
+                else:
+                  - logger.log: "OFF on boot in warm season"
+                  - climate.control:
+                      id: heater
+                      mode: "OFF"
+          else:
+            - logger.log: "HEAT on boot by default"
+            - climate.control:
+                id: heater
+                mode: HEAT

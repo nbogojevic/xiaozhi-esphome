@@ -1,0 +1,116 @@
+# cspell:ignore screenheight screenwidth imagepath imagemodel startupsound imagewidth imageheight alarmstyle starrysky Roboto nabu sdkconfig devkitc psram glyphsets localtest
+
+substitutions:
+  name: esphome-web-deb820
+  friendly_name: "ESPBall V2 deb820"
+
+## Modular version Main v1.08
+
+## SETTINGS ######################################################################################################################################
+
+  imagewidth:  "240"
+  imageheight: "240"
+
+  screenwidth:  "240"
+  screenheight: "240"
+  rotate_display: "0"
+
+  startup_sound: "Home_Connected" # (options are: available, Home_Connected, Home_Connected_Male, Computer_Ready)
+  clock_background_image: "starrysky" # (options are: clock, hacker, ha-girl, mission, starrysky, waves, tron)
+  imagemodel: "EVE" # options are:
+
+# cspell: disable
+# Alita, Alfred, Astrobot, Buzz, Casita, Cybergirl, Dory, EVE, Eyes, Eyes2, GLaDOS, Girl1, Guy1, Guy2, Gwen, HA-character, ha-girl, Hacker, Harley,
+# Jarvis, Luffy, Mario, Max, Prime, Robochibi, Robocop, Robot, Robotgirl, Sarah, Shaun
+# cspell: enable
+
+# USE ONLINE OR LOCAL MODEL AND WALLPAPER IMAGES, IMAGES SHOULD BE PLACED IN: homeassistant/www/images/
+  imagepath: "../images"
+#  imagepath: "http://homeassistant.local:8123/local/images/"
+
+## PRESENCE / MOTION SENSORS ########## IF NOT USING THESE LEAVE THEM ALONE, SCRIPT WILL BREAK WITHOUT ###########################################
+
+  sensor1_entity: "binary_sensor.entrance_presence_occupancy"
+  light1_entity: "light.entrance"
+  sensor1_label: "Entrance"
+
+  sensor2_entity: "binary_sensor.kitchen_sensor_motion"
+  light2_entity: "light.kitchen"
+  sensor2_label: "Kitchen"
+
+  sensor3_entity: "binary_sensor.hue_motion_sensor_1_motion"
+  light3_entity: "light.living_room"
+  sensor3_label: "Living"
+
+  sensor4_entity: "binary_sensor.hall_sensor_motion"
+  light4_entity: "light.hall"
+  sensor4_label: "Hall"
+
+  sensor5_entity: "binary_sensor.red_bathroom"
+  light5_entity: "light.red_bathroom"
+  sensor5_label: "Red"
+
+  sensor6_entity: "binary_sensor.blue_bathroom"
+  light6_entity: "light.blue_bathroom"
+  sensor6_label: "Blue"
+
+  sensor7_entity: "binary_sensor.toilet_presence_occupancy"
+  light7_entity: "light.toilet"
+  sensor7_label: "Toilet"
+
+  weather_entity: "weather.forecast_home"
+
+  room_temperature_entity: "sensor.home_second_bedroom_temperature"
+  
+  room_co2_entity: "sensor.home_second_bedroom_co2"
+
+##################################################################################################################################################
+
+  font_family: Roboto
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 16MB
+  cpu_frequency: 240MHz
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+### USE MODULES FROM GITHUB (default) ############################################################################################################
+
+# packages:
+#   core:
+#     url: https://github.com/RealDeco/xiaozhi-esphome.git
+#     ref: main
+#     refresh: 0s
+#     files:
+#       - devices/Under_Development/Modular/core.yaml
+#   hw:
+#     url: https://github.com/RealDeco/xiaozhi-esphome.git
+#     ref: main
+#     refresh: 0s
+#     files:
+#       - devices/Under_Development/Modular/HW/ball_v2_hw.yaml
+
+### USING LOCAL MODULES
+
+packages: # Local
+ core: !include localtest/core_ball.yaml
+ hw:   !include localtest/HW/ball_v2_hw.yaml
+
+## ENABLE / DISABLE WAKE WORDS ## IF LOW ON MEMORY, USE LESS WAKE WORDS ##########################################################################
+
+micro_wake_word:
+  id: mww
+  models:
+    - okay_nabu
+
+
+##################################################################################################################################################
